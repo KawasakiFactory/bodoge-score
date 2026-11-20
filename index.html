@@ -199,6 +199,7 @@ function buildTotal(){
   const dl=document.createElement('span');dl.className='delta';
   nm.append(t,dl);if(isDigital())nm.style.fontFamily=plainFont;
   const {dg,cells}=makeDigits(st.digits,d=>tap(i,d));
+  dg.style.color='#fff';  /* 得点の数字は常に白 */
   pn.append(nm,dg);board.append(pn);
   els.push({pn,nm,t,dl,dg,cells,acc:0,timer:null});
  });
@@ -230,7 +231,7 @@ function buildRound(){
   const tot=document.createElement('div');tot.className='rtot';
   tot.style.background=p.color;tot.style.color=textColor(p.color);
   const nm=document.createElement('span');nm.className='rname';nm.textContent=p.name;if(isDigital())nm.style.fontFamily=plainFont;
-  const val=document.createElement('span');val.className='rval';
+  const val=document.createElement('span');val.className='rval';val.style.color='#fff';  /* 合計の数字は常に白 */
   tot.append(nm,val);board.append(tot);row.tot=tot;row.nm=nm;row.val=val;
   rs.forEach((_,r)=>{
    const cell=document.createElement('div');cell.className='rcell';
