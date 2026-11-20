@@ -37,6 +37,11 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 .sub .sv{position:relative;z-index:1;white-space:nowrap;text-shadow:0 0 .03em rgba(0,0,0,.55),0 .02em .09em rgba(0,0,0,.5),0 0 .18em rgba(0,0,0,.25)}
 .sub .sm,.sub .sp{position:absolute;top:50%;transform:translateY(-50%);color:#000;opacity:.2;font-size:.45em;font-family:-apple-system,sans-serif;z-index:1}
 .sub .sm{left:.5em}.sub .sp{right:.5em}
+.se{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;font-weight:400}
+.ei{position:relative;display:inline-block;line-height:1}
+.ei b{position:absolute;right:-.15em;bottom:-.1em;color:#fff;font-family:-apple-system,"Hiragino Sans",sans-serif;font-weight:800;line-height:1;
+ text-shadow:0 0 .05em #000,0 0 .1em rgba(0,0,0,.85),0 .03em .16em rgba(0,0,0,.7),0 0 .3em rgba(0,0,0,.35)}
+.emo i{font-style:normal;font-size:24px;cursor:pointer;padding:2px 4px}
 .sh{position:absolute;top:0;bottom:0;width:50%;z-index:2}.sh.sl{left:0}.sh.sr{right:0}
 .sh::after{content:"";position:absolute;inset:0;background:#000;opacity:0;transition:opacity .25s}
 .sh.flash::after{opacity:.1;transition:none}
@@ -123,7 +128,7 @@ const FONTS=[
 ];
 const defPlayer=i=>({name:'プレイヤー'+(i+1),color:PALETTE[i%PALETTE.length],score:0,rounds:[]});
 let st={digits:3,font:0,customFont:'',bold:true,lines:true,neg:true,scale:100,rows:null,cols:null,
-  mode:'total',rounds:3,rdigits:2,subPct:30,negRed:false,players:[defPlayer(0),defPlayer(1)]};
+  mode:'total',rounds:3,rdigits:2,subPct:30,negRed:false,subStyle:'num',subEmoji:'⭐',players:[defPlayer(0),defPlayer(1)]};
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.players)){if(s.v!==2&&typeof s.font==='number')s.font+=2;st=Object.assign(st,s);}}catch(e){}
 st.v=2;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
@@ -224,21 +229,45 @@ function buildTotal(){
   let sb=null,sv=null;
   if(st.mode==='sub'){
    sb=document.createElement('div');sb.className='sub';sb.style.color=p.color;
-   sb.innerHTML='<span class="sm">−</span><span class="sv"></span><span class="sp">+</span>';
+   sb.innerHTML='<span class="sm">−</span><span class="sv"></span><div class="se"></div><span class="sp">+</span>';
    sv=sb.querySelector('.sv');
    [['sl',-1],['sr',1]].forEach(([c,d])=>{const h=document.createElement('div');h.className='sh '+c;
     h.addEventListener('pointerdown',e=>{e.preventDefault();flash(h);subTap(i,d);});sb.append(h);});
    pn.append(sb);
   }
   board.append(pn);
-  els.push({pn,nm,t,dl,dg,cells,sb,sv,acc:0,timer:null});
+  els.push({pn,nm,t,dl,dg,cells,sb,sv,se:sb?sb.querySelector('.se'):null,acc:0,timer:null});
  });
  layout();
  st.players.forEach((_,i)=>render(i));
 }
 function render(i){const e=els[i];if(!e)return;paint(e.cells,st.players[i].score,e.dg);
  if(e.sv){const v=st.players[i].sub||0;const t=(v<0?minusChar():'')+Math.abs(v);const ch=t.length!==e.sv.textContent.length;
-  e.sv.textContent=t;e.sv.classList.toggle('isneg',v<0);if(ch)sizePanel(i);}}
+  e.sv.textContent=t;e.sv.classList.toggle('isneg',v<0);
+  const emo=st.subStyle==='emoji'&&v>=0;
+  e.sv.style.display=emo?'none':'';e.se.style.display=emo?'':'none';
+  if(emo)renderEmoji(e,v);else if(ch)sizePanel(i);}}
+/* 絵文字表示：10個分・5個分は数字付きの大アイコン、残りは小アイコン（例 16 = [10]+[5]+1） */
+function firstGrapheme(str){str=String(str||'').trim();if(!str)return '⭐';
+ try{if(window.Intl&&Intl.Segmenter){for(const g of new Intl.Segmenter('ja',{granularity:'grapheme'}).segment(str))return g.segment;}}catch(e){}
+ return Array.from(str)[0];}
+function renderEmoji(e,v){
+ const se=e.se;se.innerHTML='';if(!v)return;
+ const r=e.sb.getBoundingClientRect();if(!r.height)return;
+ const em=firstGrapheme(st.subEmoji);
+ const tens=Math.floor(v/10),fives=Math.floor(v%10/5),ones=v%5,cnt=tens+fives+ones;
+ const SM=0.6,GAP=0.12;
+ const units=(tens+fives)+ones*SM+Math.max(0,cnt-1)*GAP;
+ const big=Math.max(6,Math.min(r.height*0.74,r.width*0.8/(units*1.18)));
+ se.style.gap=(big*GAP)+'px';
+ const add=label=>{const d=document.createElement('span');d.className='ei';d.textContent=em;
+  d.style.fontSize=(label?big:big*SM)+'px';
+  if(label){const b=document.createElement('b');b.textContent=label;b.style.fontSize=(big*0.42)+'px';d.append(b);}
+  se.append(d);};
+ for(let k=0;k<tens;k++)add('10');
+ for(let k=0;k<fives;k++)add('5');
+ for(let k=0;k<ones;k++)add('');
+}
 function subTap(i,d){
  const p=st.players[i];const v=p.sub||0;const nv=Math.max(st.neg?-999:0,Math.min(9999,v+d));
  if(nv===v)return;undo.push({i,r:-2,v});if(undo.length>300)undo.shift();p.sub=nv;save();render(i);}
@@ -327,7 +356,8 @@ function sizePanel(i){
  if(e.sb){const subH=(r.height-nh)*subFrac();e.sb.style.height=subH+'px';
   const chars=Math.max(e.sv.textContent.length,2)+1.4;
   e.sb.style.fontSize=Math.max(8,Math.min(subH*0.78,r.width*0.94/(chars*ratio*1.04)))+'px';
-  mainH-=subH+r.width*0.02;}
+  mainH-=subH+r.width*0.02;
+  const v=st.players[i].sub||0;if(st.subStyle==='emoji'&&v>=0)renderEmoji(e,v);}
  const padX=r.width*(0.02+(1-s)/2*0.96), padY=mainH*(1-s)/2;
  e.dg.style.padding=padY+'px '+padX+'px';
  e.dg.style.fontSize=fitFont(r.width,r.height,st.digits)*s+'px';
@@ -405,6 +435,10 @@ function drawSettings(){
  <div class="row"><label>1ラウンドの桁数</label>${step('qm',st.rdigits,'qp')}<span class="rng">範囲 ${rr.min} 〜 ${rr.max}</span></div>
  <div class="sec">サブポイントモード</div>
  <div class="row"><label>サブポイントの大きさ</label><input type="range" id="sSub" min="10" max="60" step="5" value="${st.subPct||30}" style="flex:1;min-width:160px"><b id="sSubV" style="min-width:48px;text-align:right">${st.subPct||30}%</b></div>
+ <div class="row"><label>表示方法</label><select id="sSubStyle"><option value="num"${st.subStyle!=='emoji'?' selected':''}>数字</option><option value="emoji"${st.subStyle==='emoji'?' selected':''}>絵文字の数</option></select>
+  ${st.subStyle==='emoji'?`<input type="text" id="sEmoji" value="${esc(st.subEmoji||'⭐')}" style="flex:0 0 72px;min-width:0;width:72px;font-size:24px;text-align:center;padding:4px">
+  <span class="emo">${['⭐','❤️','💀','🪙','🍎','🔥','💎','🍺','⚠️','🏆'].map(x=>`<i data-em="${x}">${x}</i>`).join('')}</span>
+  <span class="rng" style="flex-basis:100%">5個で[5]、10個で[10]の大きいアイコンにまとめて表示（例：16個 → [10]+[5]+1）</span>`:''}</div>
  <div class="sec">表示</div>
  <div class="row"><label>フォント</label><select id="sFont">${FONTS.map((f,k)=>`<option value="${k}"${k==st.font?' selected':''}>${f[0]}</option>`).join('')}</select>
   <select id="sBold"><option value="1"${st.bold?' selected':''}>太字</option><option value="0"${!st.bold?' selected':''}>標準</option></select>
@@ -446,6 +480,9 @@ function drawSettings(){
  box.querySelector('#sScale').oninput=e=>{st.scale=+e.target.value;box.querySelector('#sScaleV').textContent=st.scale+'%';save();layout();};
  box.querySelector('#sLines').onchange=e=>{st.lines=e.target.checked;save();};
  box.querySelector('#sNegRed').onchange=e=>{st.negRed=e.target.checked;save();board.classList.toggle('negred',st.negRed);};
+ box.querySelector('#sSubStyle').onchange=e=>{st.subStyle=e.target.value;save();build();drawSettings();};
+ const emI=box.querySelector('#sEmoji');if(emI)emI.oninput=e=>{st.subEmoji=firstGrapheme(e.target.value);save();build();};
+ box.querySelectorAll('[data-em]').forEach(x=>x.onclick=()=>{st.subEmoji=x.dataset.em;save();build();drawSettings();});
  box.querySelector('#sSub').oninput=e=>{st.subPct=+e.target.value;box.querySelector('#sSubV').textContent=st.subPct+'%';save();layout();};
  box.querySelector('#sNeg').onchange=e=>{st.neg=e.target.checked;if(!st.neg)st.players.forEach(p=>{if(p.score<0)p.score=0;if(p.sub<0)p.sub=0;const rs=roundsOf(p);rs.forEach((v,k)=>{if(v<0)rs[k]=0;});});save();drawSettings();};
  box.querySelectorAll('[data-c]').forEach(x=>x.oninput=e=>{st.players[+x.dataset.c].color=e.target.value;save();});
