@@ -261,7 +261,7 @@ function renderEmoji(e,v){
  const r=e.sb.getBoundingClientRect();if(!r.height)return;
  const em=firstGrapheme(st.subEmoji);
  const tens=Math.floor(v/10),fives=Math.floor(v%10/5),ones=v%5,cnt=tens+fives+ones;
- const SM=0.6,GAP=0.12;
+ const SM=0.8,GAP=0.12;
  const units=(tens+fives)+ones*SM+Math.max(0,cnt-1)*GAP;
  /* 大きさは個数によらず一定（19個＝[10][5]+4個 が入る大きさ）。それを超えて入りきらない時だけ縮める */
  const hm=e.sb.querySelector('.sm').getBoundingClientRect();
