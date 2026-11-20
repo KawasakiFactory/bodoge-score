@@ -30,9 +30,9 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 .sign{flex:0 0 auto}
 .ch{pointer-events:none;position:relative;z-index:1}
 .lead .ch{opacity:.16}
-/* 白背景のプレイヤーは白い数字に影をつけて読みやすく */
+/* 白い数字に影をつけて読みやすく（全プレイヤー共通） */
 .shadownum .ch,.rval.shadownum{text-shadow:0 0 .03em rgba(0,0,0,.55),0 .02em .09em rgba(0,0,0,.5),0 0 .18em rgba(0,0,0,.25)}
-.shadownum .lead .ch{opacity:.35}
+.lightbg .lead .ch{opacity:.35}
 #board.lines .digit+.digit::before{content:"";position:absolute;left:0;top:6%;bottom:6%;width:1px;background:currentColor;opacity:.1}
 #board.lines .digit::after{content:"";position:absolute;left:4%;right:4%;top:50%;height:1px;background:currentColor;opacity:.1;z-index:2}
 .hit{position:absolute;left:calc(-1*var(--el,0px));right:calc(-1*var(--er,0px));z-index:3}
@@ -205,7 +205,8 @@ function buildTotal(){
   nm.append(t,dl);if(isDigital())nm.style.fontFamily=plainFont;
   const {dg,cells}=makeDigits(st.digits,d=>tap(i,d));
   dg.style.color='#fff';  /* 得点の数字は常に白 */
-  if(isLight(p.color))dg.classList.add('shadownum');
+  dg.classList.add('shadownum');  /* 全色で影 */
+  if(isLight(p.color))dg.classList.add('lightbg');
   pn.append(nm,dg);board.append(pn);
   els.push({pn,nm,t,dl,dg,cells,acc:0,timer:null});
  });
@@ -238,7 +239,7 @@ function buildRound(){
   tot.style.background=p.color;tot.style.color=textColor(p.color);
   const nm=document.createElement('span');nm.className='rname';nm.textContent=p.name;if(isDigital())nm.style.fontFamily=plainFont;
   const val=document.createElement('span');val.className='rval';val.style.color='#fff';  /* 合計の数字は常に白 */
-  if(isLight(p.color))val.classList.add('shadownum');
+  val.classList.add('shadownum');
   tot.append(nm,val);board.append(tot);row.tot=tot;row.nm=nm;row.val=val;
   rs.forEach((_,r)=>{
    const cell=document.createElement('div');cell.className='rcell';
