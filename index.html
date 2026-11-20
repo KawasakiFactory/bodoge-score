@@ -30,6 +30,9 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 .sign{flex:0 0 auto}
 .ch{pointer-events:none;position:relative;z-index:1}
 .lead .ch{opacity:.16}
+/* 白背景のプレイヤーは白い数字に影をつけて読みやすく */
+.shadownum .ch,.rval.shadownum{text-shadow:0 0 .03em rgba(0,0,0,.55),0 .02em .09em rgba(0,0,0,.5),0 0 .18em rgba(0,0,0,.25)}
+.shadownum .lead .ch{opacity:.35}
 #board.lines .digit+.digit::before{content:"";position:absolute;left:0;top:6%;bottom:6%;width:1px;background:currentColor;opacity:.1}
 #board.lines .digit::after{content:"";position:absolute;left:4%;right:4%;top:50%;height:1px;background:currentColor;opacity:.1;z-index:2}
 .hit{position:absolute;left:calc(-1*var(--el,0px));right:calc(-1*var(--er,0px));z-index:3}
@@ -120,6 +123,8 @@ let els=[],rEls=null;
 
 function fontStack(){const f=FONTS[st.font]||FONTS[0];if(f[1]==='custom')return (st.customFont?'"'+st.customFont.replace(/"/g,'')+'",':'')+'-apple-system,sans-serif';return f[1];}
 function rgb(hex){const h=hex.replace('#','');return [0,2,4].map(k=>parseInt(h.substr(k,2),16));}
+/* 白っぽい背景か（相対輝度0.7超） */
+function isLight(hex){const [r,g,b]=rgb(hex).map(x=>x/255);const L=x=>x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4);return .2126*L(r)+.7152*L(g)+.0722*L(b)>0.7;}
 function textColor(hex){const [r,g,b]=rgb(hex).map(x=>x/255);
  const L=x=>x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4);const y=.2126*L(r)+.7152*L(g)+.0722*L(b);return y>.4?'#111':'#fff';}
 /* ラウンド欄の色：プレイヤーカラーを白と50%で混ぜる（全色共通のルール） */
@@ -200,6 +205,7 @@ function buildTotal(){
   nm.append(t,dl);if(isDigital())nm.style.fontFamily=plainFont;
   const {dg,cells}=makeDigits(st.digits,d=>tap(i,d));
   dg.style.color='#fff';  /* 得点の数字は常に白 */
+  if(isLight(p.color))dg.classList.add('shadownum');
   pn.append(nm,dg);board.append(pn);
   els.push({pn,nm,t,dl,dg,cells,acc:0,timer:null});
  });
@@ -232,6 +238,7 @@ function buildRound(){
   tot.style.background=p.color;tot.style.color=textColor(p.color);
   const nm=document.createElement('span');nm.className='rname';nm.textContent=p.name;if(isDigital())nm.style.fontFamily=plainFont;
   const val=document.createElement('span');val.className='rval';val.style.color='#fff';  /* 合計の数字は常に白 */
+  if(isLight(p.color))val.classList.add('shadownum');
   tot.append(nm,val);board.append(tot);row.tot=tot;row.nm=nm;row.val=val;
   rs.forEach((_,r)=>{
    const cell=document.createElement('div');cell.className='rcell';
