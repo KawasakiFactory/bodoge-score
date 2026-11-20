@@ -30,6 +30,16 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 .sign{flex:0 0 auto}
 .ch{pointer-events:none;position:relative;z-index:1}
 .lead .ch{opacity:.16}
+/* マイナスを赤く（オプション） */
+#board.negred .isneg{color:#ff1f1f!important}
+/* サブポイント */
+.sub{position:relative;z-index:5;flex:0 0 auto;margin:0 2% 2%;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;line-height:1;font-variant-numeric:tabular-nums lining-nums;overflow:hidden}
+.sub .sv{position:relative;z-index:1;white-space:nowrap;text-shadow:0 0 .03em rgba(0,0,0,.55),0 .02em .09em rgba(0,0,0,.5),0 0 .18em rgba(0,0,0,.25)}
+.sub .sm,.sub .sp{position:absolute;top:50%;transform:translateY(-50%);color:#000;opacity:.2;font-size:.45em;font-family:-apple-system,sans-serif;z-index:1}
+.sub .sm{left:.5em}.sub .sp{right:.5em}
+.sh{position:absolute;top:0;bottom:0;width:50%;z-index:2}.sh.sl{left:0}.sh.sr{right:0}
+.sh::after{content:"";position:absolute;inset:0;background:#000;opacity:0;transition:opacity .25s}
+.sh.flash::after{opacity:.1;transition:none}
 /* 白い数字に影をつけて読みやすく（全プレイヤー共通） */
 .shadownum .ch,.rval.shadownum{text-shadow:0 0 .03em rgba(0,0,0,.55),0 .02em .09em rgba(0,0,0,.5),0 0 .18em rgba(0,0,0,.25)}
 .lightbg .lead .ch{opacity:.35}
@@ -81,7 +91,7 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 </head>
 <body>
 <div id="board"></div>
-<div id="ctrl"><div class="mode" id="modeSw"><button data-m="total">合計</button><button data-m="round">ラウンド</button></div><button id="undoBtn" aria-label="元に戻す">↶</button><button id="setBtn" aria-label="設定">⚙</button></div>
+<div id="ctrl"><div class="mode" id="modeSw"><button data-m="total">合計</button><button data-m="round">ラウンド</button><button data-m="sub">サブ</button></div><button id="undoBtn" aria-label="元に戻す">↶</button><button id="setBtn" aria-label="設定">⚙</button></div>
 <div id="sheet"><div class="box" id="box"></div></div>
 <script>
 (function(){
@@ -113,7 +123,7 @@ const FONTS=[
 ];
 const defPlayer=i=>({name:'プレイヤー'+(i+1),color:PALETTE[i%PALETTE.length],score:0,rounds:[]});
 let st={digits:3,font:0,customFont:'',bold:true,lines:true,neg:true,scale:100,rows:null,cols:null,
-  mode:'total',rounds:3,rdigits:2,players:[defPlayer(0),defPlayer(1)]};
+  mode:'total',rounds:3,rdigits:2,subPct:30,negRed:false,players:[defPlayer(0),defPlayer(1)]};
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.players)){if(s.v!==2&&typeof s.font==='number')s.font+=2;st=Object.assign(st,s);}}catch(e){}
 st.v=2;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
@@ -161,7 +171,8 @@ function makeDigits(D,onTap){
  }
  return {dg,cells};
 }
-function paint(cells,value){
+function paint(cells,value,el){
+ if(el)el.classList.toggle('isneg',value<0);
  const D=cells.length,neg=value<0,v=Math.abs(value),s=String(v).padStart(D,'0');
  const firstSig=v===0?D-1:D-String(v).length;
  cells.forEach((o,k)=>{
@@ -182,10 +193,12 @@ function extendHits(dg,box){
 function flash(el){el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),120);}
 
 function build(){
+ if(!['total','round','sub'].includes(st.mode))st.mode='total';
  board.innerHTML='';els=[];rEls=null;
  board.style.fontFamily=fontStack();
  board.style.fontWeight=st.bold?'700':'400';
  board.classList.toggle('lines',!!st.lines);
+ board.classList.toggle('negred',!!st.negRed);
  document.querySelectorAll('#modeSw button').forEach(b=>b.classList.toggle('on',b.dataset.m===st.mode));
  document.getElementById('ctrl').classList.toggle('left',st.mode==='round');
  measure();
@@ -207,13 +220,28 @@ function buildTotal(){
   dg.style.color='#fff';  /* 得点の数字は常に白 */
   dg.classList.add('shadownum');  /* 全色で影 */
   if(isLight(p.color))dg.classList.add('lightbg');
-  pn.append(nm,dg);board.append(pn);
-  els.push({pn,nm,t,dl,dg,cells,acc:0,timer:null});
+  pn.append(nm,dg);
+  let sb=null,sv=null;
+  if(st.mode==='sub'){
+   sb=document.createElement('div');sb.className='sub';sb.style.color=p.color;
+   sb.innerHTML='<span class="sm">−</span><span class="sv"></span><span class="sp">+</span>';
+   sv=sb.querySelector('.sv');
+   [['sl',-1],['sr',1]].forEach(([c,d])=>{const h=document.createElement('div');h.className='sh '+c;
+    h.addEventListener('pointerdown',e=>{e.preventDefault();flash(h);subTap(i,d);});sb.append(h);});
+   pn.append(sb);
+  }
+  board.append(pn);
+  els.push({pn,nm,t,dl,dg,cells,sb,sv,acc:0,timer:null});
  });
  layout();
  st.players.forEach((_,i)=>render(i));
 }
-function render(i){const e=els[i];if(e)paint(e.cells,st.players[i].score);}
+function render(i){const e=els[i];if(!e)return;paint(e.cells,st.players[i].score,e.dg);
+ if(e.sv){const v=st.players[i].sub||0;const t=(v<0?minusChar():'')+Math.abs(v);const ch=t.length!==e.sv.textContent.length;
+  e.sv.textContent=t;e.sv.classList.toggle('isneg',v<0);if(ch)sizePanel(i);}}
+function subTap(i,d){
+ const p=st.players[i];const v=p.sub||0;const nv=Math.max(st.neg?-999:0,Math.min(9999,v+d));
+ if(nv===v)return;undo.push({i,r:-2,v});if(undo.length>300)undo.shift();p.sub=nv;save();render(i);}
 function tap(i,d){
  const p=st.players[i];const nv=clampV(p.score+d);
  if(nv===p.score)return;
@@ -254,8 +282,8 @@ function buildRound(){
 }
 function renderRow(i){
  const row=rEls&&rEls.rows[i];if(!row)return;const p=st.players[i];
- roundsOf(p).forEach((v,r)=>paint(row.cells[r].cells,v));
- const t=totalOf(p);row.val.textContent=(t<0?minusChar():'')+Math.abs(t);
+ roundsOf(p).forEach((v,r)=>paint(row.cells[r].cells,v,row.cells[r].dg));
+ const t=totalOf(p);row.val.textContent=(t<0?minusChar():'')+Math.abs(t);row.val.classList.toggle('isneg',t<0);
  if(row.val.textContent.length>unitsT)layoutRound();
 }
 function rtap(i,r,d){
@@ -268,7 +296,8 @@ function rtap(i,r,d){
 /* ===== レイアウト ===== */
 const GAP=6;
 const nameH=ph=>Math.max(22,Math.min(64,ph*0.11));
-function fitFont(pw,ph,units){const dh=ph-nameH(ph);return Math.max(10,Math.min(dh*0.92,(pw*0.96)/units/(ratio*1.04)));}
+const subFrac=()=>st.mode==='sub'?(st.subPct||30)/100:0;
+function fitFont(pw,ph,units){const dh=(ph-nameH(ph))*(1-subFrac())-(subFrac()?pw*0.02:0);return Math.max(10,Math.min(dh*0.92,(pw*0.96)/units/(ratio*1.04)));}
 let grid={c:1,r:1};
 const sc=()=>(st.scale||100)/100;
 function inner(){const cs=getComputedStyle(board);
@@ -294,7 +323,12 @@ function sizePanel(i){
  const nh=nameH(r.height);
  e.nm.style.height=nh+'px';e.nm.style.fontSize=(nh*0.58)+'px';
  const s=sc();
- const padX=r.width*(0.02+(1-s)/2*0.96), padY=(r.height-nh)*(1-s)/2;
+ let mainH=r.height-nh;
+ if(e.sb){const subH=(r.height-nh)*subFrac();e.sb.style.height=subH+'px';
+  const chars=Math.max(e.sv.textContent.length,2)+1.4;
+  e.sb.style.fontSize=Math.max(8,Math.min(subH*0.78,r.width*0.94/(chars*ratio*1.04)))+'px';
+  mainH-=subH+r.width*0.02;}
+ const padX=r.width*(0.02+(1-s)/2*0.96), padY=mainH*(1-s)/2;
  e.dg.style.padding=padY+'px '+padX+'px';
  e.dg.style.fontSize=fitFont(r.width,r.height,st.digits)*s+'px';
  extendHits(e.dg,e.pn);
@@ -338,8 +372,8 @@ addEventListener('orientationchange',()=>setTimeout(layout,300));
 
 document.getElementById('undoBtn').addEventListener('click',()=>{
  const u=undo.pop();if(!u||!st.players[u.i])return;const p=st.players[u.i];
- if(u.r<0)p.score=u.v;else if(u.r<st.rounds)roundsOf(p)[u.r]=u.v;
- save();if(u.r<0&&st.mode==='total')render(u.i);else if(u.r>=0&&st.mode==='round')renderRow(u.i);});
+ if(u.r===-1)p.score=u.v;else if(u.r===-2)p.sub=u.v;else if(u.r<st.rounds)roundsOf(p)[u.r]=u.v;
+ save();if(u.r<0&&st.mode!=='round')render(u.i);else if(u.r>=0&&st.mode==='round')renderRow(u.i);});
 document.querySelectorAll('#modeSw button').forEach(b=>b.addEventListener('click',()=>{if(st.mode!==b.dataset.m){st.mode=b.dataset.m;save();build();}}));
 
 /* keep screen awake */
@@ -356,8 +390,8 @@ function close(){sheet.classList.remove('open');build();}
 let resetArm=false;
 function drawSettings(){
  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
- const g=calcGrid();if(st.mode==='total')grid=g;
- const rr=rangeOf(st.rdigits),isR=st.mode==='round';
+ const g=calcGrid();if(st.mode!=='round')grid=g;
+ const rr=rangeOf(st.rdigits),isR=st.mode==='round',isS=st.mode==='sub';
  const step=(m,v,p)=>`<div class="step"><button class="sq" data-a="${m}">−</button><b>${v}</b><button class="sq" data-a="${p}">+</button></div>`;
  box.innerHTML=`
  <h2>設定<button id="sClose">閉じる</button></h2>
@@ -369,6 +403,8 @@ function drawSettings(){
  <div class="sec">ラウンド合計モード</div>
  <div class="row"><label>ラウンド数</label>${step('nm',st.rounds,'np')}</div>
  <div class="row"><label>1ラウンドの桁数</label>${step('qm',st.rdigits,'qp')}<span class="rng">範囲 ${rr.min} 〜 ${rr.max}</span></div>
+ <div class="sec">サブポイントモード</div>
+ <div class="row"><label>サブポイントの大きさ</label><input type="range" id="sSub" min="10" max="60" step="5" value="${st.subPct||30}" style="flex:1;min-width:160px"><b id="sSubV" style="min-width:48px;text-align:right">${st.subPct||30}%</b></div>
  <div class="sec">表示</div>
  <div class="row"><label>フォント</label><select id="sFont">${FONTS.map((f,k)=>`<option value="${k}"${k==st.font?' selected':''}>${f[0]}</option>`).join('')}</select>
   <select id="sBold"><option value="1"${st.bold?' selected':''}>太字</option><option value="0"${!st.bold?' selected':''}>標準</option></select>
@@ -377,13 +413,14 @@ function drawSettings(){
  <div class="row"><label>数字の大きさ</label><input type="range" id="sScale" min="30" max="100" step="5" value="${st.scale||100}" style="flex:1;min-width:160px"><b id="sScaleV" style="min-width:48px;text-align:right">${st.scale||100}%</b></div>
  <div class="row"><label>その他</label>
   <label style="color:#eee;min-width:0"><input type="checkbox" id="sLines"${st.lines?' checked':''}> 区切り線</label>
-  <label style="color:#eee;min-width:0"><input type="checkbox" id="sNeg"${st.neg?' checked':''}> マイナス得点を許可</label></div>
+  <label style="color:#eee;min-width:0"><input type="checkbox" id="sNeg"${st.neg?' checked':''}> マイナス得点を許可</label>
+  <label style="color:#eee;min-width:0"><input type="checkbox" id="sNegRed"${st.negRed?' checked':''}> マイナスの数値は赤文字</label></div>
  <div style="margin-top:14px;color:#aaa;font-size:14px">プレイヤー（色・名前・合計モードの得点）</div>
  ${st.players.map((p,i)=>`
   <div class="prow"><input type="color" data-c="${i}" value="${p.color}"><input type="text" data-n="${i}" value="${esc(p.name)}"><input type="number" inputmode="numeric" data-s="${i}" value="${p.score}"></div>
   <div class="sw" style="margin:0 0 6px 54px">${PALETTE.map(c=>`<i data-pc="${i}" data-col="${c}" style="background:${c}"></i>`).join('')}</div>`).join('')}
- <div class="row" style="border:0;margin-top:8px"><button class="warn" id="sReset">${resetArm?'もう一度押すと0にします':(isR?'全ラウンドの得点を0にする':'全員の得点を0にする')}</button></div>
- <p class="note">数字の<b>上半分</b>をタップでその桁を＋、<b>下半分</b>で−（例：十の位の上＝+10）。右上で「合計／ラウンド」を切り替え、↶で直前の操作を取り消し。<br>ラウンド欄の色はプレイヤーカラーを白と50%で混ぜた色です。</p>`;
+ <div class="row" style="border:0;margin-top:8px"><button class="warn" id="sReset">${resetArm?'もう一度押すと0にします':(isR?'全ラウンドの得点を0にする':isS?'全員の得点とサブポイントを0にする':'全員の得点を0にする')}</button></div>
+ <p class="note">数字の<b>上半分</b>をタップでその桁を＋、<b>下半分</b>で−（例：十の位の上＝+10）。右上で「合計／ラウンド／サブ」を切り替え。サブポイントは白い枠の左半分で−1、右半分で＋1、↶で直前の操作を取り消し。<br>ラウンド欄の色はプレイヤーカラーを白と50%で混ぜた色です。</p>`;
  const prev=box.querySelector('#sPrev');prev.style.fontFamily=fontStack();prev.style.fontWeight=st.bold?'700':'400';
  box.querySelector('#sClose').onclick=close;
  box.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
@@ -408,14 +445,16 @@ function drawSettings(){
  const cu=box.querySelector('#sCustom');if(cu)cu.oninput=e=>{st.customFont=e.target.value;save();prev.style.fontFamily=fontStack();};
  box.querySelector('#sScale').oninput=e=>{st.scale=+e.target.value;box.querySelector('#sScaleV').textContent=st.scale+'%';save();layout();};
  box.querySelector('#sLines').onchange=e=>{st.lines=e.target.checked;save();};
- box.querySelector('#sNeg').onchange=e=>{st.neg=e.target.checked;if(!st.neg)st.players.forEach(p=>{if(p.score<0)p.score=0;const rs=roundsOf(p);rs.forEach((v,k)=>{if(v<0)rs[k]=0;});});save();drawSettings();};
+ box.querySelector('#sNegRed').onchange=e=>{st.negRed=e.target.checked;save();board.classList.toggle('negred',st.negRed);};
+ box.querySelector('#sSub').oninput=e=>{st.subPct=+e.target.value;box.querySelector('#sSubV').textContent=st.subPct+'%';save();layout();};
+ box.querySelector('#sNeg').onchange=e=>{st.neg=e.target.checked;if(!st.neg)st.players.forEach(p=>{if(p.score<0)p.score=0;if(p.sub<0)p.sub=0;const rs=roundsOf(p);rs.forEach((v,k)=>{if(v<0)rs[k]=0;});});save();drawSettings();};
  box.querySelectorAll('[data-c]').forEach(x=>x.oninput=e=>{st.players[+x.dataset.c].color=e.target.value;save();});
  box.querySelectorAll('[data-pc]').forEach(x=>x.onclick=()=>{st.players[+x.dataset.pc].color=x.dataset.col;save();drawSettings();});
  box.querySelectorAll('[data-n]').forEach(x=>x.oninput=e=>{st.players[+x.dataset.n].name=e.target.value;save();});
  box.querySelectorAll('[data-s]').forEach(x=>x.onchange=e=>{let v=parseInt(e.target.value,10);if(isNaN(v))v=0;
   v=clampV(v);st.players[+x.dataset.s].score=v;e.target.value=v;save();});
  box.querySelector('#sReset').onclick=()=>{if(!resetArm){resetArm=true;drawSettings();setTimeout(()=>{if(resetArm){resetArm=false;if(sheet.classList.contains('open'))drawSettings();}},3000);return;}
-  resetArm=false;if(isR)st.players.forEach(p=>{p.rounds=[];roundsOf(p);});else st.players.forEach(p=>p.score=0);undo.length=0;save();drawSettings();};
+  resetArm=false;if(isR)st.players.forEach(p=>{p.rounds=[];roundsOf(p);});else st.players.forEach(p=>{p.score=0;if(isS)p.sub=0;});undo.length=0;save();drawSettings();};
 }
 /* ダブルタップ・ピンチでの拡大を防止 */
 let lastTouch=0;
