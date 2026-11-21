@@ -44,8 +44,6 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 /* サブポイント */
 .sub{position:relative;z-index:5;flex:0 0 auto;margin:0 2% 2%;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;line-height:1;font-variant-numeric:tabular-nums lining-nums;overflow:hidden}
 .sub .sv{position:relative;z-index:1;white-space:nowrap;text-shadow:0 0 .03em rgba(0,0,0,.55),0 .02em .09em rgba(0,0,0,.5),0 0 .18em rgba(0,0,0,.25)}
-.sub .sm,.sub .sp{position:absolute;top:50%;transform:translateY(-50%);color:#000;opacity:.2;font-size:.45em;font-family:-apple-system,sans-serif;z-index:1}
-.sub .sm{left:.5em}.sub .sp{right:.5em}
 .se{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;font-weight:400}
 .ei{position:relative;display:inline-block;line-height:1}
 .ei b{position:absolute;right:-.15em;bottom:-.1em;color:#fff;font-family:-apple-system,"Hiragino Sans",sans-serif;font-weight:800;line-height:1;
@@ -248,7 +246,7 @@ function buildTotal(){
   let sb=null,sv=null;
   if(st.mode==='sub'){
    sb=document.createElement('div');sb.className='sub';sb.style.color=p.color;
-   sb.innerHTML='<span class="sm">−</span><span class="sv"></span><div class="se"></div><span class="sp">+</span>';
+   sb.innerHTML='<span class="sv"></span><div class="se"></div>';
    sv=sb.querySelector('.sv');
    [['sl',-1],['sr',1]].forEach(([c,d])=>{const h=document.createElement('div');h.className='sh '+c;
     h.addEventListener('pointerdown',e=>{e.preventDefault();flash(h);subTap(i,d);});sb.append(h);});
@@ -283,8 +281,7 @@ function renderEmoji(e,v){
  const SM=0.8,GAP=0.12;
  const units=(tens+fives)+ones*SM+Math.max(0,cnt-1)*GAP;
  /* 大きさは個数によらず一定（19個＝[10][5]+4個 が入る大きさ）。それを超えて入りきらない時だけ縮める */
- const hm=e.sb.querySelector('.sm').getBoundingClientRect();
- const adv=emojiAdv(em),avail=r.width-2*(hm.right-r.left+r.height*0.08);
+ const adv=emojiAdv(em),avail=r.width-2*Math.max(6,r.height*0.1);
  const wOf=n=>((n.b)+n.s*SM)*adv+Math.max(0,n.b+n.s-1)*GAP;
  const CAP=wOf({b:2,s:4});
  let big=Math.max(6,Math.min(r.height*0.72,avail/CAP));
@@ -385,9 +382,8 @@ function sizePanel(i){
  const s=sc();
  let mainH=r.height-nh;
  if(e.sb){const subH=(r.height-nh)*subFrac();e.sb.style.height=subH+'px';
-  const chars=Math.max(e.sv.textContent.length,2)+1.4;
+  const chars=Math.max(e.sv.textContent.length,2)+0.4;
   e.sb.style.fontSize=Math.max(8,Math.min(subH*0.78,r.width*0.94/(chars*ratio*1.04)))+'px';
-  e.sb.querySelectorAll('.sm,.sp').forEach(x=>x.style.fontSize=Math.max(12,Math.min(subH*0.3,26))+'px');
   mainH-=subH+r.width*0.02;
   const v=st.players[i].sub||0;if(st.subStyle==='emoji'&&v>=0)renderEmoji(e,v);}
  const padX=r.width*(0.02+(1-s)/2*0.96), padY=mainH*(1-s)/2;
