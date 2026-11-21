@@ -46,7 +46,7 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 .sub .sv{position:relative;z-index:1;white-space:nowrap;text-shadow:0 0 .03em rgba(0,0,0,.55),0 .02em .09em rgba(0,0,0,.5),0 0 .18em rgba(0,0,0,.25)}
 .se{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;font-weight:400}
 .ei{position:relative;display:inline-block;line-height:1}
-.ei b{position:absolute;right:-.15em;bottom:-.1em;color:#fff;font-family:-apple-system,"Hiragino Sans",sans-serif;font-weight:800;line-height:1;
+.ei b{position:absolute;right:-.04em;bottom:-.08em;color:#fff;font-family:-apple-system,"Hiragino Sans",sans-serif;font-weight:800;line-height:1;
  text-shadow:0 0 .05em #000,0 0 .1em rgba(0,0,0,.85),0 .03em .16em rgba(0,0,0,.7),0 0 .3em rgba(0,0,0,.35)}
 .emo i{font-style:normal;font-size:24px;cursor:pointer;padding:2px 4px}
 .sh{position:absolute;top:0;bottom:0;width:50%;z-index:2}.sh.sl{left:0}.sh.sr{right:0}
@@ -288,7 +288,7 @@ function renderEmoji(e,v){
  se.style.gap=(u*GAP)+'px';
  const add=label=>{const d=document.createElement('span');d.className='ei';d.textContent=em;
   d.style.fontSize=(label?B:u)+'px';
-  if(label){const b=document.createElement('b');b.textContent=label;b.style.fontSize=(B*0.42)+'px';d.append(b);}
+  if(label){const b=document.createElement('b');b.textContent=label;b.style.fontSize=(B*0.84)+'px';d.append(b);}
   se.append(d);};
  for(let k=0;k<tens;k++)add('10');
  for(let k=0;k<fives;k++)add('5');
