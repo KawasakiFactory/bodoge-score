@@ -278,19 +278,17 @@ function renderEmoji(e,v){
  const r=e.sb.getBoundingClientRect();if(!r.height)return;
  const em=firstGrapheme(st.subEmoji);
  const tens=Math.floor(v/10),fives=Math.floor(v%10/5),ones=v%5,cnt=tens+fives+ones;
- const SM=0.8,GAP=0.12;
- const units=(tens+fives)+ones*SM+Math.max(0,cnt-1)*GAP;
- /* 大きさは個数によらず一定（19個＝[10][5]+4個 が入る大きさ）。それを超えて入りきらない時だけ縮める */
- const adv=emojiAdv(em),avail=r.width-2*Math.max(6,r.height*0.1);
- const wOf=n=>((n.b)+n.s*SM)*adv+Math.max(0,n.b+n.s-1)*GAP;
- const CAP=wOf({b:2,s:4});
- let big=Math.max(6,Math.min(r.height*0.72,avail/CAP));
- const need=wOf({b:tens+fives,s:ones});
- if(need*big>avail)big=Math.max(6,avail/need);
- se.style.gap=(big*GAP)+'px';
+ /* 大きさは個数によらず一定：1個ぶんのマーク4つで横幅いっぱい（高さが足りなければ高さいっぱい）。
+    5・10のマークは1個ぶんの1.25倍（帯の高さまで）。入りきらない時だけ全体を縮める */
+ const GAP=0.1,adv=emojiAdv(em),avail=r.width-2*Math.max(4,r.height*0.06);
+ let u=Math.min(r.height*0.78,avail/(4*adv+3*GAP));
+ let B=Math.min(u*1.25,r.height*0.84);
+ const nb=tens+fives,need=(nb*B+ones*u)*adv+Math.max(0,cnt-1)*u*GAP;
+ if(need>avail){const k=avail/need;u*=k;B*=k;}
+ se.style.gap=(u*GAP)+'px';
  const add=label=>{const d=document.createElement('span');d.className='ei';d.textContent=em;
-  d.style.fontSize=(label?big:big*SM)+'px';
-  if(label){const b=document.createElement('b');b.textContent=label;b.style.fontSize=(big*0.42)+'px';d.append(b);}
+  d.style.fontSize=(label?B:u)+'px';
+  if(label){const b=document.createElement('b');b.textContent=label;b.style.fontSize=(B*0.42)+'px';d.append(b);}
   se.append(d);};
  for(let k=0;k<tens;k++)add('10');
  for(let k=0;k<fives;k++)add('5');
