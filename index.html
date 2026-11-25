@@ -71,7 +71,7 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 #ctrl .mode button.on{background:rgba(255,255,255,.22);opacity:1}
 .rh{display:flex;align-items:center;justify-content:center;color:#8a8a90;font-weight:700;white-space:nowrap;overflow:hidden;min-width:0}
 .rcell{position:relative;display:flex;min-width:0;min-height:0;border-radius:6px;overflow:hidden}
-.rcell .digits{flex:1;padding:0}
+.rcell .digits{flex:1;padding:0;text-shadow:0 0 .05em #fff,0 0 .12em #fff,0 0 .22em rgba(255,255,255,.8)}
 .rtot{position:relative;display:flex;align-items:center;justify-content:flex-end;border-radius:6px;overflow:hidden;min-width:0;min-height:0;line-height:1;font-variant-numeric:tabular-nums lining-nums}
 .rtot .rname{position:absolute;left:.5em;top:.35em;font-weight:700;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92%;line-height:1.1}
 .rtot .rval{white-space:nowrap}
@@ -143,7 +143,7 @@ const FONTS=[
 ];
 const defPlayer=i=>({name:'プレイヤー'+(i+1),color:PALETTE[i%PALETTE.length],score:0,rounds:[]});
 let st={digits:3,font:0,customFont:'',bold:true,lines:true,neg:true,scale:100,rows:null,cols:null,
-  mode:'total',rounds:3,rdigits:2,subPct:30,negRed:false,subStyle:'num',subEmoji:'⭐',players:[defPlayer(0),defPlayer(1)]};
+  mode:'total',rounds:3,rdigits:2,subPct:30,totW:30,negRed:false,subStyle:'num',subEmoji:'⭐',players:[defPlayer(0),defPlayer(1)]};
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.players)){if(s.v!==2&&s.v!==3&&typeof s.font==='number')s.font+=2;if(s.v!==3&&typeof s.font==='number'&&s.font>=2)s.font+=8;st=Object.assign(st,s);}}catch(e){}
 st.v=3;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
@@ -157,8 +157,8 @@ function rgb(hex){const h=hex.replace('#','');return [0,2,4].map(k=>parseInt(h.s
 function isLight(hex){const [r,g,b]=rgb(hex).map(x=>x/255);const L=x=>x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4);return .2126*L(r)+.7152*L(g)+.0722*L(b)>0.7;}
 function textColor(hex){const [r,g,b]=rgb(hex).map(x=>x/255);
  const L=x=>x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4);const y=.2126*L(r)+.7152*L(g)+.0722*L(b);return y>.4?'#111':'#fff';}
-/* ラウンド欄の色：プレイヤーカラーを白と50%で混ぜる（全色共通のルール） */
-const TINT=0.5;
+/* ラウンド欄の色：プレイヤーカラー30%＋白70%（全色共通のルール） */
+const TINT=0.7;
 function tint(hex){const c=rgb(hex).map(x=>Math.round(x+(255-x)*TINT));return '#'+c.map(x=>x.toString(16).padStart(2,'0')).join('');}
 /* 範囲（マイナスは最上位桁に表示するため負側は1桁少ない） */
 const rangeOf=d=>({max:Math.pow(10,d)-1,min:st.neg?-(Math.pow(10,d-1)-1):0});
@@ -397,7 +397,8 @@ function layoutRound(){
  const D=st.rdigits;
  unitsT=Math.max(D+1,...rEls.rows.map(r=>r.val.textContent.length));
  const cw=Math.round(document.getElementById('ctrl').getBoundingClientRect().width+12);
- board.style.gridTemplateColumns=`minmax(${cw}px,${(unitsT/D).toFixed(3)}fr) repeat(${st.rounds},1fr)`;
+ /* 合計欄の幅は設定の％（操作ボタンが収まる幅は確保）、残りをラウンド数で等分 */
+ board.style.gridTemplateColumns=`max(${cw}px,${st.totW||30}%) repeat(${st.rounds},minmax(0,1fr))`;
  board.style.gridTemplateRows=`${HEAD}px repeat(${st.players.length},1fr)`;
  rEls.heads.forEach(h=>h.style.fontSize=Math.min(22,HEAD*0.5)+'px');
  const r0=rEls.rows[0];
@@ -459,11 +460,12 @@ function drawSettings(){
  <div class="sec">ラウンド合計モード</div>
  <div class="row"><label>ラウンド数</label>${step('nm',st.rounds,'np')}</div>
  <div class="row"><label>1ラウンドの桁数</label>${step('qm',st.rdigits,'qp')}<span class="rng">範囲 ${rr.min} 〜 ${rr.max}</span></div>
+ <div class="row"><label>合計欄の幅</label><input type="range" id="sTotW" min="10" max="60" step="5" value="${st.totW||30}" style="flex:1;min-width:160px"><b id="sTotWV" style="min-width:48px;text-align:right">${st.totW||30}%</b></div>
  <div class="sec">サブポイントモード</div>
  <div class="row"><label>サブポイントの大きさ</label><input type="range" id="sSub" min="10" max="60" step="5" value="${st.subPct||30}" style="flex:1;min-width:160px"><b id="sSubV" style="min-width:48px;text-align:right">${st.subPct||30}%</b></div>
  <div class="row"><label>表示方法</label><select id="sSubStyle"><option value="num"${st.subStyle!=='emoji'?' selected':''}>数字</option><option value="emoji"${st.subStyle==='emoji'?' selected':''}>絵文字の数</option></select>
   ${st.subStyle==='emoji'?`<span style="color:#aaa;font-size:14px">絵文字を入力：</span><input type="text" id="sEmoji" value="${esc(st.subEmoji||'⭐')}" placeholder="⭐" style="flex:0 0 72px;min-width:0;width:72px;font-size:24px;text-align:center;padding:4px">
-  <span class="emo" style="flex-basis:100%"><span style="color:#888;font-size:13px">候補：</span>${['⭐','❤️','💀','🪙','🍎','🔥','💎','🍺','⚠️','🏆'].map(x=>`<i data-em="${x}">${x}</i>`).join('')}</span>
+  <span class="emo" style="flex-basis:100%"><span style="color:#888;font-size:13px">候補：</span>${['⭐','❤️','❌','⭕️','💀','🪙','🍎','🔥','💎','🍺','⚠️','🏆'].map(x=>`<i data-em="${x}">${x}</i>`).join('')}</span>
   <span class="rng" style="flex-basis:100%">5個で[5]、10個で[10]の大きいアイコンにまとめて表示（例：16個 → [10]+[5]+1）</span>`:''}</div>
  <div class="sec">表示</div>
  <div class="row"><label>フォント</label><select id="sFont">${FONTS.map((f,k)=>`<option value="${k}"${k==st.font?' selected':''}>${f[0]}</option>`).join('')}</select>
@@ -509,6 +511,7 @@ function drawSettings(){
  box.querySelector('#sSubStyle').onchange=e=>{st.subStyle=e.target.value;save();build();drawSettings();};
  const emI=box.querySelector('#sEmoji');if(emI)emI.oninput=e=>{st.subEmoji=firstGrapheme(e.target.value);save();build();};
  box.querySelectorAll('[data-em]').forEach(x=>x.onclick=()=>{st.subEmoji=x.dataset.em;save();build();drawSettings();});
+ box.querySelector('#sTotW').oninput=e=>{st.totW=+e.target.value;box.querySelector('#sTotWV').textContent=st.totW+'%';save();layout();};
  box.querySelector('#sSub').oninput=e=>{st.subPct=+e.target.value;box.querySelector('#sSubV').textContent=st.subPct+'%';save();layout();};
  box.querySelector('#sNeg').onchange=e=>{st.neg=e.target.checked;if(!st.neg)st.players.forEach(p=>{if(p.score<0)p.score=0;if(p.sub<0)p.sub=0;const rs=roundsOf(p);rs.forEach((v,k)=>{if(v<0)rs[k]=0;});});save();drawSettings();};
  box.querySelectorAll('[data-c]').forEach(x=>x.oninput=e=>{st.players[+x.dataset.c].color=e.target.value;save();});
