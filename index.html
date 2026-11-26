@@ -80,6 +80,9 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 /* settings */
 #sheet{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
 #sheet.open{display:flex}
+#rnm{position:fixed;inset:0;z-index:31;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}
+#rnm.open{display:flex}
+.rhe{cursor:pointer;text-overflow:ellipsis;display:block!important;text-align:center;line-height:44px;padding:0 4px}
 .box{background:#1c1c1f;color:#eee;border-radius:16px;width:min(640px,100%);max-height:100%;overflow:auto;padding:18px 20px 22px;-webkit-user-select:text;user-select:text;font-size:16px}
 .box h2{font-size:18px;margin-bottom:12px;display:flex;align-items:center}
 .box h2 button{margin-left:auto}
@@ -105,6 +108,9 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 <div id="board"></div>
 <div id="ctrl"><div class="mode" id="modeSw"><button data-m="total">合計</button><button data-m="round">ラウンド</button><button data-m="sub">サブ</button></div><button id="undoBtn" aria-label="元に戻す">↶</button><button id="setBtn" aria-label="設定">⚙</button></div>
 <div id="sheet"><div class="box" id="box"></div></div>
+<div id="rnm"><div class="box" style="width:min(420px,100%)"><h2 id="rnmT">見出し</h2>
+ <input type="text" id="rnmIn" maxlength="20" style="width:100%;font-size:20px">
+ <div class="row" style="border:0;justify-content:flex-end;margin-top:8px"><button id="rnmDef" style="margin-right:auto">R1 に戻す</button><button id="rnmCancel">キャンセル</button><button id="rnmOk" style="background:#2f6fdb">決定</button></div></div></div>
 <script>
 (function(){
 const KEY='kawasaki-scoreboard-v1';
@@ -314,8 +320,10 @@ function showDelta(i,d){
 function buildRound(){
  board.style.gap='3px';
  const R=st.rounds;rEls={heads:[],rows:[]};
- for(let r=-1;r<R;r++){const h=document.createElement('div');h.className='rh';h.textContent=r<0?'':'R'+(r+1);
-  if(isDigital())h.style.fontFamily=plainFont;board.append(h);rEls.heads.push(h);}
+ for(let r=-1;r<R;r++){const h=document.createElement('div');h.className='rh'+(r<0?'':' rhe');h.textContent=r<0?'':roundName(r);
+  if(isDigital())h.style.fontFamily=plainFont;
+  if(r>=0)h.addEventListener('pointerup',e=>{e.preventDefault();openRename(r);});
+  board.append(h);rEls.heads.push(h);}
  st.players.forEach((p,i)=>{
   const rs=roundsOf(p);const tc=tint(p.color);const row={cells:[],tot:null,val:null};
   const tot=document.createElement('div');tot.className='rtot';
@@ -335,6 +343,20 @@ function buildRound(){
  layout();
  st.players.forEach((_,i)=>renderRow(i));
 }
+/* ラウンド見出し：タップで自由に名前を付けられる（空ならR1,R2…） */
+function roundName(r){const n=(st.roundNames||[])[r];return n&&n.trim()?n:'R'+(r+1);}
+const rnm=document.getElementById('rnm'),rnmIn=document.getElementById('rnmIn');let rnmIdx=-1;
+function openRename(r){rnmIdx=r;document.getElementById('rnmT').textContent='R'+(r+1)+' の見出し';
+ rnmIn.value=(st.roundNames||[])[r]||'';rnmIn.placeholder='R'+(r+1);document.getElementById('rnmDef').textContent='R'+(r+1)+' に戻す';
+ rnm.classList.add('open');setTimeout(()=>{try{rnmIn.focus();rnmIn.select();}catch(e){}},50);}
+function closeRename(val){if(val!==undefined&&rnmIdx>=0){if(!Array.isArray(st.roundNames))st.roundNames=[];st.roundNames[rnmIdx]=val.trim();save();
+  if(rEls&&rEls.heads[rnmIdx+1])rEls.heads[rnmIdx+1].textContent=roundName(rnmIdx);}
+ rnm.classList.remove('open');try{rnmIn.blur();}catch(e){}rnmIdx=-1;}
+document.getElementById('rnmOk').addEventListener('click',()=>closeRename(rnmIn.value));
+document.getElementById('rnmDef').addEventListener('click',()=>closeRename(''));
+document.getElementById('rnmCancel').addEventListener('click',()=>closeRename());
+rnmIn.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();closeRename(rnmIn.value);}});
+rnm.addEventListener('pointerdown',e=>{if(e.target===rnm)closeRename();});
 function renderRow(i){
  const row=rEls&&rEls.rows[i];if(!row)return;const p=st.players[i];
  roundsOf(p).forEach((v,r)=>paint(row.cells[r].cells,v,row.cells[r].dg));
