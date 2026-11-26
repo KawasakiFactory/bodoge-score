@@ -31,8 +31,10 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 .panel{border-radius:14px;display:flex;flex-direction:column;overflow:hidden;position:relative;min-width:0;min-height:0}
 .name{flex:0 0 auto;display:flex;align-items:center;gap:.5em;padding:0 .6em;white-space:nowrap;overflow:hidden;line-height:1}
 .name .t{overflow:hidden;text-overflow:ellipsis}
-.delta{font-variant-numeric:tabular-nums;opacity:0;transition:opacity .35s}
-.delta.show{opacity:.85;transition:none}
+/* 増減表示は出ている間だけ幅を取る（普段は名前を省略させない） */
+.delta{font-variant-numeric:tabular-nums;opacity:0;max-width:0;overflow:hidden;flex-shrink:0;transition:opacity .35s}
+.delta.show{opacity:.85;max-width:none;transition:none}
+.name .t{min-width:0}
 .digits{flex:1;display:flex;align-items:stretch;min-height:0;padding:0 2%}
 .sign,.digit{display:flex;align-items:center;justify-content:center;line-height:1;font-variant-numeric:tabular-nums lining-nums;position:relative}
 .digit{flex:1 1 0;min-width:0}
@@ -149,7 +151,7 @@ const FONTS=[
 ];
 const defPlayer=i=>({name:'プレイヤー'+(i+1),color:PALETTE[i%PALETTE.length],score:0,rounds:[]});
 let st={digits:3,font:0,customFont:'',bold:true,lines:true,neg:true,scale:100,rows:null,cols:null,
-  mode:'total',rounds:3,rdigits:2,subPct:30,totW:30,negRed:false,subStyle:'num',subEmoji:'⭐',players:[defPlayer(0),defPlayer(1)]};
+  mode:'total',rounds:3,rdigits:2,subPct:30,totW:30,nameScale:100,negRed:false,subStyle:'num',subEmoji:'⭐',players:[defPlayer(0),defPlayer(1)]};
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.players)){if(s.v!==2&&s.v!==3&&typeof s.font==='number')s.font+=2;if(s.v!==3&&typeof s.font==='number'&&s.font>=2)s.font+=8;st=Object.assign(st,s);}}catch(e){}
 st.v=3;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
@@ -372,7 +374,9 @@ function rtap(i,r,d){
 
 /* ===== レイアウト ===== */
 const GAP=6;
-const nameH=ph=>Math.max(22,Math.min(64,ph*0.11));
+/* 名前の大きさ（設定の％、100%＝従来の大きさ）。大きくすると数字の領域がその分小さくなる */
+const nameK=()=>(st.nameScale||100)/100;
+const nameH=ph=>Math.min(ph*0.45,Math.max(22,Math.min(64,ph*0.11))*nameK());
 const subFrac=()=>st.mode==='sub'?(st.subPct||30)/100:0;
 function fitFont(pw,ph,units){const dh=(ph-nameH(ph))*(1-subFrac())-(subFrac()?pw*0.02:0);return Math.max(10,Math.min(dh*0.92,(pw*0.96)/units/(ratio*1.04)));}
 let grid={c:1,r:1};
@@ -425,7 +429,7 @@ function layoutRound(){
  rEls.heads.forEach(h=>h.style.fontSize=Math.min(22,HEAD*0.5)+'px');
  const r0=rEls.rows[0];
  const rc=r0.cells[0]?r0.cells[0].cell.getBoundingClientRect():null,tc=r0.tot.getBoundingClientRect();
- const h=tc.height;const nf=Math.max(9,Math.min(18,h*0.17)),top=nf*1.5;
+ const h=tc.height;const nf=Math.min(h*0.3,Math.max(9,Math.min(18,h*0.17))*nameK()),top=nf*1.5;
  const k=ratio*1.04;
  let f=Math.min((h-top)*0.86,tc.width*0.9/unitsT/k);
  if(rc)f=Math.min(f,rc.width*0.84/D/k);
@@ -494,6 +498,7 @@ function drawSettings(){
   <select id="sBold"><option value="1"${st.bold?' selected':''}>太字</option><option value="0"${!st.bold?' selected':''}>標準</option></select>
   ${FONTS[st.font]&&FONTS[st.font][1]==='custom'?`<input type="text" id="sCustom" placeholder="例: Optima" value="${esc(st.customFont)}">`:''}
   <div class="preview" id="sPrev">0123456789 プレイヤー</div></div>
+ <div class="row"><label>名前の大きさ</label><input type="range" id="sName" min="50" max="300" step="10" value="${st.nameScale||100}" style="flex:1;min-width:160px"><b id="sNameV" style="min-width:48px;text-align:right">${st.nameScale||100}%</b></div>
  <div class="row"><label>数字の大きさ</label><input type="range" id="sScale" min="30" max="100" step="5" value="${st.scale||100}" style="flex:1;min-width:160px"><b id="sScaleV" style="min-width:48px;text-align:right">${st.scale||100}%</b></div>
  <div class="row"><label>その他</label>
   <label style="color:#eee;min-width:0"><input type="checkbox" id="sLines"${st.lines?' checked':''}> 区切り線</label>
@@ -527,6 +532,7 @@ function drawSettings(){
  box.querySelector('#sFont').onchange=e=>{st.font=+e.target.value;save();drawSettings();};
  box.querySelector('#sBold').onchange=e=>{st.bold=e.target.value==='1';save();drawSettings();};
  const cu=box.querySelector('#sCustom');if(cu)cu.oninput=e=>{st.customFont=e.target.value;save();prev.style.fontFamily=fontStack();};
+ box.querySelector('#sName').oninput=e=>{st.nameScale=+e.target.value;box.querySelector('#sNameV').textContent=st.nameScale+'%';save();layout();};
  box.querySelector('#sScale').oninput=e=>{st.scale=+e.target.value;box.querySelector('#sScaleV').textContent=st.scale+'%';save();layout();};
  box.querySelector('#sLines').onchange=e=>{st.lines=e.target.checked;save();};
  box.querySelector('#sNegRed').onchange=e=>{st.negRed=e.target.checked;save();board.classList.toggle('negred',st.negRed);};
