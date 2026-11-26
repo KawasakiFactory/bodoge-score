@@ -34,7 +34,8 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 /* 増減表示は出ている間だけ幅を取る（普段は名前を省略させない） */
 .delta{font-variant-numeric:tabular-nums;opacity:0;max-width:0;overflow:hidden;flex-shrink:0;transition:opacity .35s}
 .delta.show{opacity:.85;max-width:none;transition:none}
-.name .t{min-width:0}
+.name .t{min-width:0;position:relative;z-index:4;cursor:pointer}
+.rtot .rname{z-index:2;cursor:pointer}
 .digits{flex:1;display:flex;align-items:stretch;min-height:0;padding:0 2%}
 .sign,.digit{display:flex;align-items:center;justify-content:center;line-height:1;font-variant-numeric:tabular-nums lining-nums;position:relative}
 .digit{flex:1 1 0;min-width:0}
@@ -67,6 +68,8 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 #ctrl{position:fixed;z-index:20;display:flex;gap:6px;top:max(8px,env(safe-area-inset-top));right:max(8px,env(safe-area-inset-right))}
 #ctrl button{width:40px;height:40px;border-radius:20px;border:0;background:rgba(0,0,0,.35);color:#fff;font-size:20px;opacity:.45;display:flex;align-items:center;justify-content:center}
 #ctrl button:active{opacity:.9}
+#ctrl #resetBtn{font-weight:800;font-size:17px}
+#ctrl #resetBtn.armed{width:auto;padding:0 12px;background:#c62828;opacity:1;font-size:14px}
 #ctrl.left{right:auto;left:max(8px,env(safe-area-inset-left))}
 #ctrl .mode{display:flex;height:40px;border-radius:20px;overflow:hidden;background:rgba(0,0,0,.4)}
 #ctrl .mode button{width:auto;height:40px;border-radius:0;background:none;padding:0 11px;font-size:14px;font-weight:700;opacity:.45}
@@ -108,7 +111,7 @@ html,body{height:100%;background:#0d0d0f;overflow:hidden;-webkit-user-select:non
 </head>
 <body>
 <div id="board"></div>
-<div id="ctrl"><div class="mode" id="modeSw"><button data-m="total">合計</button><button data-m="round">ラウンド</button><button data-m="sub">サブ</button></div><button id="undoBtn" aria-label="元に戻す">↶</button><button id="setBtn" aria-label="設定">⚙</button></div>
+<div id="ctrl"><div class="mode" id="modeSw"><button data-m="total">合計</button><button data-m="round">ラウンド</button><button data-m="sub">サブ</button></div><button id="resetBtn" aria-label="点数リセット">0</button><button id="undoBtn" aria-label="元に戻す">↶</button><button id="setBtn" aria-label="設定">⚙</button></div>
 <div id="sheet"><div class="box" id="box"></div></div>
 <div id="rnm"><div class="box" style="width:min(420px,100%)"><h2 id="rnmT">見出し</h2>
  <input type="text" id="rnmIn" maxlength="20" style="width:100%;font-size:20px">
@@ -244,6 +247,7 @@ function buildTotal(){
   pn.style.background=p.color;pn.style.color=textColor(p.color);
   const nm=document.createElement('div');nm.className='name';
   const t=document.createElement('span');t.className='t';t.textContent=p.name;
+  t.addEventListener('pointerdown',e=>e.stopPropagation());t.addEventListener('pointerup',e=>{e.preventDefault();e.stopPropagation();openRename('p',i);});
   const dl=document.createElement('span');dl.className='delta';
   nm.append(t,dl);if(isDigital())nm.style.fontFamily=plainFont;
   const {dg,cells}=makeDigits(st.digits,d=>tap(i,d));
@@ -330,7 +334,8 @@ function buildRound(){
   const rs=roundsOf(p);const tc=tint(p.color);const row={cells:[],tot:null,val:null};
   const tot=document.createElement('div');tot.className='rtot';
   tot.style.background=p.color;tot.style.color=textColor(p.color);
-  const nm=document.createElement('span');nm.className='rname';nm.textContent=p.name;if(isDigital())nm.style.fontFamily=plainFont;
+  const nm=document.createElement('span');nm.className='rname';nm.textContent=p.name;
+  nm.addEventListener('pointerup',e=>{e.preventDefault();openRename('p',i);});if(isDigital())nm.style.fontFamily=plainFont;
   const val=document.createElement('span');val.className='rval';val.style.color='#fff';  /* 合計の数字は常に白 */
   val.classList.add('shadownum');
   tot.append(nm,val);board.append(tot);row.tot=tot;row.nm=nm;row.val=val;
@@ -347,12 +352,20 @@ function buildRound(){
 }
 /* ラウンド見出し：タップで自由に名前を付けられる（空ならR1,R2…） */
 function roundName(r){const n=(st.roundNames||[])[r];return n&&n.trim()?n:'R'+(r+1);}
-const rnm=document.getElementById('rnm'),rnmIn=document.getElementById('rnmIn');let rnmIdx=-1;
-function openRename(r){rnmIdx=r;document.getElementById('rnmT').textContent='R'+(r+1)+' の見出し';
- rnmIn.value=(st.roundNames||[])[r]||'';rnmIn.placeholder='R'+(r+1);document.getElementById('rnmDef').textContent='R'+(r+1)+' に戻す';
+/* 名前入力ダイアログ：ラウンド見出し（kind='r'）とプレイヤー名（kind='p'）で共用 */
+const rnm=document.getElementById('rnm'),rnmIn=document.getElementById('rnmIn');let rnmIdx=-1,rnmKind='r';
+function openRename(a,b){
+ if(b===undefined){rnmKind='r';rnmIdx=a;}else{rnmKind=a;rnmIdx=b;}
+ const isP=rnmKind==='p',r=rnmIdx,def=isP?'プレイヤー'+(r+1):'R'+(r+1);
+ document.getElementById('rnmT').textContent=isP?'プレイヤー名':def+' の見出し';
+ rnmIn.value=isP?st.players[r].name:((st.roundNames||[])[r]||'');rnmIn.placeholder=def;
+ document.getElementById('rnmDef').textContent=def+' に戻す';
  rnm.classList.add('open');setTimeout(()=>{try{rnmIn.focus();rnmIn.select();}catch(e){}},50);}
-function closeRename(val){if(val!==undefined&&rnmIdx>=0){if(!Array.isArray(st.roundNames))st.roundNames=[];st.roundNames[rnmIdx]=val.trim();save();
-  if(rEls&&rEls.heads[rnmIdx+1])rEls.heads[rnmIdx+1].textContent=roundName(rnmIdx);}
+function closeRename(val){
+ if(val!==undefined&&rnmIdx>=0){
+  if(rnmKind==='p'){const p=st.players[rnmIdx];if(p){p.name=val.trim()||('プレイヤー'+(rnmIdx+1));save();build();}}
+  else{if(!Array.isArray(st.roundNames))st.roundNames=[];st.roundNames[rnmIdx]=val.trim();save();
+   if(rEls&&rEls.heads[rnmIdx+1])rEls.heads[rnmIdx+1].textContent=roundName(rnmIdx);}}
  rnm.classList.remove('open');try{rnmIn.blur();}catch(e){}rnmIdx=-1;}
 document.getElementById('rnmOk').addEventListener('click',()=>closeRename(rnmIn.value));
 document.getElementById('rnmDef').addEventListener('click',()=>closeRename(''));
@@ -453,8 +466,22 @@ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{measure()
 addEventListener('resize',()=>requestAnimationFrame(layout));
 addEventListener('orientationchange',()=>setTimeout(layout,300));
 
+/* 点数リセット（現在のモードの点数）。直前の状態を保存して↶で戻せる */
+function snapshot(){return st.players.map(p=>({score:p.score,sub:p.sub||0,rounds:roundsOf(p).slice()}));}
+function resetScores(){
+ undo.push({snap:snapshot()});if(undo.length>300)undo.shift();
+ if(st.mode==='round')st.players.forEach(p=>{p.rounds=[];roundsOf(p);});
+ else st.players.forEach(p=>{p.score=0;if(st.mode==='sub')p.sub=0;});
+ save();build();}
+const resetBtn=document.getElementById('resetBtn');let rArm=null;
+function disarm(){clearTimeout(rArm);rArm=null;resetBtn.classList.remove('armed');resetBtn.textContent='0';}
+resetBtn.addEventListener('click',()=>{
+ if(!rArm){resetBtn.classList.add('armed');resetBtn.textContent='もう一度でリセット';rArm=setTimeout(disarm,3000);return;}
+ disarm();resetScores();});
 document.getElementById('undoBtn').addEventListener('click',()=>{
- const u=undo.pop();if(!u||!st.players[u.i])return;const p=st.players[u.i];
+ const u=undo.pop();if(!u)return;
+ if(u.snap){u.snap.forEach((o,k)=>{const p=st.players[k];if(!p)return;p.score=o.score;p.sub=o.sub;p.rounds=o.rounds.slice();});save();build();return;}
+ if(!st.players[u.i])return;const p=st.players[u.i];
  if(u.r===-1)p.score=u.v;else if(u.r===-2)p.sub=u.v;else if(u.r<st.rounds)roundsOf(p)[u.r]=u.v;
  save();if(u.r<0&&st.mode!=='round')render(u.i);else if(u.r>=0&&st.mode==='round')renderRow(u.i);});
 document.querySelectorAll('#modeSw button').forEach(b=>b.addEventListener('click',()=>{if(st.mode!==b.dataset.m){st.mode=b.dataset.m;save();build();}}));
@@ -548,7 +575,7 @@ function drawSettings(){
  box.querySelectorAll('[data-s]').forEach(x=>x.onchange=e=>{let v=parseInt(e.target.value,10);if(isNaN(v))v=0;
   v=clampV(v);st.players[+x.dataset.s].score=v;e.target.value=v;save();});
  box.querySelector('#sReset').onclick=()=>{if(!resetArm){resetArm=true;drawSettings();setTimeout(()=>{if(resetArm){resetArm=false;if(sheet.classList.contains('open'))drawSettings();}},3000);return;}
-  resetArm=false;if(isR)st.players.forEach(p=>{p.rounds=[];roundsOf(p);});else st.players.forEach(p=>{p.score=0;if(isS)p.sub=0;});undo.length=0;save();drawSettings();};
+  resetArm=false;resetScores();drawSettings();};
 }
 /* ダブルタップ・ピンチでの拡大を防止 */
 let lastTouch=0;
