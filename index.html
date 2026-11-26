@@ -154,7 +154,7 @@ const FONTS=[
 ];
 const defPlayer=i=>({name:'プレイヤー'+(i+1),color:PALETTE[i%PALETTE.length],score:0,rounds:[]});
 let st={digits:3,font:0,customFont:'',bold:true,lines:true,neg:true,scale:100,rows:null,cols:null,
-  mode:'total',rounds:3,rdigits:2,subPct:30,totW:30,nameScale:100,negRed:false,subStyle:'num',subEmoji:'⭐',players:[defPlayer(0),defPlayer(1)]};
+  mode:'total',rounds:3,rdigits:2,subPct:30,totW:30,invert:false,nameScale:100,negRed:false,subStyle:'num',subEmoji:'⭐',players:[defPlayer(0),defPlayer(1)]};
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.players)){if(s.v!==2&&s.v!==3&&typeof s.font==='number')s.font+=2;if(s.v!==3&&typeof s.font==='number'&&s.font>=2)s.font+=8;st=Object.assign(st,s);}}catch(e){}
 st.v=3;
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
@@ -166,6 +166,8 @@ function fontStack(){const f=FONTS[st.font]||FONTS[0];if(f[1]==='custom')return 
 function rgb(hex){const h=hex.replace('#','');return [0,2,4].map(k=>parseInt(h.substr(k,2),16));}
 /* 白っぽい背景か（相対輝度0.7超） */
 function isLight(hex){const [r,g,b]=rgb(hex).map(x=>x/255);const L=x=>x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4);return .2126*L(r)+.7152*L(g)+.0722*L(b)>0.7;}
+/* 色反転時の名前の色（白に近い色は読めないので濃い灰色） */
+function invName(hex){return isLight(hex)?'#333':hex;}
 function textColor(hex){const [r,g,b]=rgb(hex).map(x=>x/255);
  const L=x=>x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4);const y=.2126*L(r)+.7152*L(g)+.0722*L(b);return y>.4?'#111':'#fff';}
 /* ラウンド欄の色：プレイヤーカラー30%＋白70%（全色共通のルール） */
@@ -244,20 +246,22 @@ function buildTotal(){
  board.style.gap='6px';
  st.players.forEach((p,i)=>{
   const pn=document.createElement('div');pn.className='panel';
-  pn.style.background=p.color;pn.style.color=textColor(p.color);
+  const inv=!!st.invert;  /* 色反転：白背景＋プレイヤーカラーの文字 */
+  pn.style.background=inv?'#fff':p.color;pn.style.color=inv?invName(p.color):textColor(p.color);
   const nm=document.createElement('div');nm.className='name';
   const t=document.createElement('span');t.className='t';t.textContent=p.name;
   t.addEventListener('pointerdown',e=>e.stopPropagation());t.addEventListener('pointerup',e=>{e.preventDefault();e.stopPropagation();openRename('p',i);});
   const dl=document.createElement('span');dl.className='delta';
   nm.append(t,dl);if(isDigital())nm.style.fontFamily=plainFont;
   const {dg,cells}=makeDigits(st.digits,d=>tap(i,d));
-  dg.style.color='#fff';  /* 得点の数字は常に白 */
+  dg.style.color=inv?p.color:'#fff';  /* 得点の数字：通常は白、色反転時はプレイヤーカラー */
   dg.classList.add('shadownum');  /* 全色で影 */
   if(isLight(p.color))dg.classList.add('lightbg');
   pn.append(nm,dg);
   let sb=null,sv=null;
   if(st.mode==='sub'){
    sb=document.createElement('div');sb.className='sub';sb.style.color=p.color;
+   if(inv)sb.style.boxShadow='inset 0 0 0 3px '+(isLight(p.color)?'#bbb':p.color);
    sb.innerHTML='<span class="sv"></span><div class="se"></div>';
    sv=sb.querySelector('.sv');
    [['sl',-1],['sr',1]].forEach(([c,d])=>{const h=document.createElement('div');h.className='sh '+c;
@@ -333,10 +337,11 @@ function buildRound(){
  st.players.forEach((p,i)=>{
   const rs=roundsOf(p);const tc=tint(p.color);const row={cells:[],tot:null,val:null};
   const tot=document.createElement('div');tot.className='rtot';
-  tot.style.background=p.color;tot.style.color=textColor(p.color);
+  const inv=!!st.invert;
+  tot.style.background=inv?'#fff':p.color;tot.style.color=inv?invName(p.color):textColor(p.color);
   const nm=document.createElement('span');nm.className='rname';nm.textContent=p.name;
   nm.addEventListener('pointerup',e=>{e.preventDefault();openRename('p',i);});if(isDigital())nm.style.fontFamily=plainFont;
-  const val=document.createElement('span');val.className='rval';val.style.color='#fff';  /* 合計の数字は常に白 */
+  const val=document.createElement('span');val.className='rval';val.style.color=inv?p.color:'#fff';  /* 合計の数字：通常は白、色反転時はプレイヤーカラー */
   val.classList.add('shadownum');
   tot.append(nm,val);board.append(tot);row.tot=tot;row.nm=nm;row.val=val;
   rs.forEach((_,r)=>{
@@ -530,7 +535,8 @@ function drawSettings(){
  <div class="row"><label>その他</label>
   <label style="color:#eee;min-width:0"><input type="checkbox" id="sLines"${st.lines?' checked':''}> 区切り線</label>
   <label style="color:#eee;min-width:0"><input type="checkbox" id="sNeg"${st.neg?' checked':''}> マイナス得点を許可</label>
-  <label style="color:#eee;min-width:0"><input type="checkbox" id="sNegRed"${st.negRed?' checked':''}> マイナスの数値は赤文字</label></div>
+  <label style="color:#eee;min-width:0"><input type="checkbox" id="sNegRed"${st.negRed?' checked':''}> マイナスの数値は赤文字</label>
+  <label style="color:#eee;min-width:0"><input type="checkbox" id="sInv"${st.invert?' checked':''}> 色反転（白背景＋色文字）</label></div>
  <div style="margin-top:14px;color:#aaa;font-size:14px">プレイヤー（色・名前・合計モードの得点）</div>
  ${st.players.map((p,i)=>`
   <div class="prow"><input type="color" data-c="${i}" value="${p.color}"><input type="text" data-n="${i}" value="${esc(p.name)}"><input type="number" inputmode="numeric" data-s="${i}" value="${p.score}"></div>
@@ -562,6 +568,7 @@ function drawSettings(){
  box.querySelector('#sName').oninput=e=>{st.nameScale=+e.target.value;box.querySelector('#sNameV').textContent=st.nameScale+'%';save();layout();};
  box.querySelector('#sScale').oninput=e=>{st.scale=+e.target.value;box.querySelector('#sScaleV').textContent=st.scale+'%';save();layout();};
  box.querySelector('#sLines').onchange=e=>{st.lines=e.target.checked;save();};
+ box.querySelector('#sInv').onchange=e=>{st.invert=e.target.checked;save();build();};
  box.querySelector('#sNegRed').onchange=e=>{st.negRed=e.target.checked;save();board.classList.toggle('negred',st.negRed);};
  box.querySelector('#sSubStyle').onchange=e=>{st.subStyle=e.target.value;save();build();drawSettings();};
  const emI=box.querySelector('#sEmoji');if(emI)emI.oninput=e=>{st.subEmoji=firstGrapheme(e.target.value);save();build();};
